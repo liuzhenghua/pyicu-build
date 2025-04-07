@@ -9,7 +9,7 @@ env:
   ICU_RELEASE: 77-1/icu4c-77_1
   CIBW_TEST_REQUIRES: pytest six
   CIBW_TEST_COMMAND: pytest {project}/test
-  CIBW_SKIP: "pp* cp36*"
+  CIBW_SKIP: "pp* cp36* cp37* cp38* cp39* cp310*"
 
 jobs:
   build_amd64:
@@ -29,48 +29,76 @@ jobs:
         env:
           CIBW_ARCHS_WINDOWS: AMD64
           CIBW_ENVIRONMENT_WINDOWS: INCLUDE="include;$INCLUDE" LIB="lib$ICU_ARCH;$LIB"
-      - uses: actions/upload-artifact@v4
+      # - uses: actions/upload-artifact@v4
+      #   with:
+      #     path: ./wheelhouse/*.whl
+      #     name: wheels-win-amd64
+      
+      - name: Generate Timestamp
+        id: timestamp
+        run: echo "TAG_NAME=v$(date +'%Y%m%d%H%M')" >> $GITHUB_ENV
+        shell: bash
+
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
         with:
-          path: ./wheelhouse/*.whl
-          name: wheels-win-amd64
-  build_arm64:
-    name: Build ARM64 wheels
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [windows-2019]
-    env:
-      ICU_ARCH: ARM64
-      ICU_PLAT: WinARM64-MSVC2022
-    steps:
-      - uses: actions/checkout@v4
-      - run: download.cmd
-        shell: cmd
-      - uses: pypa/cibuildwheel@v2.23.1
+          tag_name: ${{env.TAG_NAME}}
+          release_name: 'Release - ${{env.TAG_NAME}}'
+          body: 'Release notes for ${{env.TAG_NAME}}'
+          draft: false
+          prerelease: false
         env:
-          CIBW_SKIP: "pp* cp36* cp37* cp38* cp39* cp310*"
-          CIBW_ARCHS_WINDOWS: ARM64
-          CIBW_ENVIRONMENT_WINDOWS: INCLUDE="include;$INCLUDE" LIB="lib$ICU_ARCH;$LIB"
-      - uses: actions/upload-artifact@v4
-        with:
-          path: ./wheelhouse/*.whl
-          name: wheels-win-arm64
-  build_x86:
-    name: Build x86 wheels
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [windows-2019]
-    env:
-      ICU_PLAT: Win32-MSVC2022
-    steps:
-      - uses: actions/checkout@v4
-      - run: download.cmd
-        shell: cmd
-      - uses: pypa/cibuildwheel@v2.23.1
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload each wheel to GitHub Releases (Bash)
+        shell: bash
         env:
-          CIBW_ARCHS_WINDOWS: x86
-          CIBW_ENVIRONMENT_WINDOWS: INCLUDE="include;$INCLUDE" LIB="lib$ICU_ARCH;$LIB"
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          for wheel in wheelhouse/*.whl; do
+            echo "Uploading $wheel"
+            gh release upload "$TAG_NAME" "$wheel"
+          done
+      
+  # build_arm64:
+  #   name: Build ARM64 wheels
+  #   runs-on: ${{ matrix.os }}
+  #   strategy:
+  #     matrix:
+  #       os: [windows-2019]
+  #   env:
+  #     ICU_ARCH: ARM64
+  #     ICU_PLAT: WinARM64-MSVC2022
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - run: download.cmd
+  #       shell: cmd
+  #     - uses: pypa/cibuildwheel@v2.23.1
+  #       env:
+  #         CIBW_SKIP: "pp* cp36* cp37* cp38* cp39* cp310*"
+  #         CIBW_ARCHS_WINDOWS: ARM64
+  #         CIBW_ENVIRONMENT_WINDOWS: INCLUDE="include;$INCLUDE" LIB="lib$ICU_ARCH;$LIB"
+  #     - uses: actions/upload-artifact@v4
+  #       with:
+  #         path: ./wheelhouse/*.whl
+  #         name: wheels-win-arm64
+  # build_x86:
+  #   name: Build x86 wheels
+  #   runs-on: ${{ matrix.os }}
+  #   strategy:
+  #     matrix:
+  #       os: [windows-2019]
+  #   env:
+  #     ICU_PLAT: Win32-MSVC2022
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - run: download.cmd
+  #       shell: cmd
+  #     - uses: pypa/cibuildwheel@v2.23.1
+  #       env:
+  #         CIBW_ARCHS_WINDOWS: x86
+  #         CIBW_ENVIRONMENT_WINDOWS: INCLUDE="include;$INCLUDE" LIB="lib$ICU_ARCH;$LIB"
       - uses: actions/upload-artifact@v4
         with:
           path: ./wheelhouse/*.whl
